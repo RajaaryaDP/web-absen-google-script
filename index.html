@@ -406,19 +406,30 @@
         }
 
         function tambahUser() {
-            const data = [
-                document.getElementById('inp-nip').value,
-                document.getElementById('inp-nama').value,
-                document.getElementById('inp-jabatan').value
-            ];
-            if (!data[0] || !data[1]) return alert("Lengkapi data!");
+            const nip = document.getElementById('inp-nip').value.trim();
+            const nama = document.getElementById('inp-nama').value.trim();
+            const jabatan = document.getElementById('inp-jabatan').value;
+            if (!nip || !nama) return alert('Lengkapi data NIP dan Nama!');
 
             toggleLoading(true);
-            google.script.run.withSuccessHandler(() => {
-                alert("Data tersimpan!");
-                refreshTable();
-                toggleLoading(false);
-            }).saveData(data[2], data);
+            google.script.run
+                .withSuccessHandler(res => {
+                    toggleLoading(false);
+                    if (res && res.ok === false) {
+                        alert('Gagal menyimpan:\n' + res.pesan);
+                    } else {
+                        alert('Data berhasil disimpan!');
+                        // Reset form input
+                        document.getElementById('inp-nip').value = '';
+                        document.getElementById('inp-nama').value = '';
+                        refreshTable();
+                    }
+                })
+                .withFailureHandler(err => {
+                    toggleLoading(false);
+                    alert('Error: ' + err.message);
+                })
+                .saveData(jabatan, [nip, nama, jabatan]);
         }
 
         function refreshTable() {
@@ -474,21 +485,28 @@
         }
 
         function editUser(nip, nama, kategori) {
-            const nipBaru = prompt("Edit NIP:", nip);
+            const nipBaru = prompt('Edit NIP:', nip);
             if (nipBaru === null) return;
-            const namaBaru = prompt("Edit Nama:", nama);
+            const namaBaru = prompt('Edit Nama:', nama);
             if (namaBaru === null) return;
-            if (!nipBaru.trim() || !namaBaru.trim()) return alert("NIP dan Nama tidak boleh kosong!");
+            if (!nipBaru.trim() || !namaBaru.trim()) return alert('NIP dan Nama tidak boleh kosong!');
 
             toggleLoading(true);
-            google.script.run.withSuccessHandler(res => {
-                alert(res || "Data berhasil diperbarui!");
-                refreshTable();
-                toggleLoading(false);
-            }).withFailureHandler(err => {
-                alert("Gagal mengubah: " + err.message);
-                toggleLoading(false);
-            }).updateData(kategori, nip, [nipBaru.trim(), namaBaru.trim(), kategori]);
+            google.script.run
+                .withSuccessHandler(res => {
+                    toggleLoading(false);
+                    if (res && res.ok === false) {
+                        alert('Gagal mengubah:\n' + res.pesan);
+                    } else {
+                        alert(res.pesan || 'Data berhasil diperbarui!');
+                        refreshTable();
+                    }
+                })
+                .withFailureHandler(err => {
+                    toggleLoading(false);
+                    alert('Error: ' + err.message);
+                })
+                .updateData(kategori, nip, [nipBaru.trim(), namaBaru.trim(), kategori]);
         }
 
         function saveSettings() {
@@ -604,6 +622,12 @@
             const namaSekolah = (currentSettings && currentSettings.nama_sekolah) || 'Sekolah';
             const kepsek = (currentSettings && currentSettings.kepala_sekolah) || '-';
             const nipKepsek = (currentSettings && currentSettings.nip_kepsek) || '-';
+            const logoUrl = (currentSettings && currentSettings.logo_url) || '';
+            const tanggalCetak = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+            const logoHtml = logoUrl
+                ? `<img src="${logoUrl}" alt="Logo" style="height:72px;width:72px;object-fit:contain;flex-shrink:0;">`
+                : `<div style="height:72px;width:72px;flex-shrink:0;"></div>`;
 
             const win = window.open('', '_blank');
             win.document.write(`<!DOCTYPE html>
@@ -612,26 +636,87 @@
     <meta charset="UTF-8">
     <title>Rekap Absensi - ${namaSekolah}</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 40px; font-size: 13px; }
-        h1, h2, h3 { margin: 4px 0; }
-        .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #000; padding-bottom: 12px; }
+        /* Hilangkan header/footer bawaan browser (about:blank, tanggal, dll) */
+        @page {
+            margin: 15mm 15mm 15mm 15mm;
+            /* Header & footer kosong agar about:blank tidak muncul */
+        }
+        @media print {
+            /* Chrome/Edge: sembunyikan running header & footer */
+            html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 30px 40px; font-size: 13px; margin: 0; }
+        h1, h2, h3 { margin: 2px 0; }
+
+        /* Header pojok kanan atas — muncul di setiap halaman */
+        .print-top-right {
+            position: fixed;
+            top: 0; right: 0;
+            font-size: 10px;
+            color: #555;
+            text-align: right;
+            padding: 4px 0;
+        }
+        @media screen { .print-top-right { display: none; } }
+
+        /* Layout header dokumen: logo kiri + teks tengah */
+        .doc-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #000;
+        }
+        .doc-header-logo { flex-shrink: 0; }
+        .doc-header-text { flex: 1; text-align: center; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 16px; }
         th, td { border: 1px solid #333; padding: 7px 10px; text-align: left; }
         thead tr { background: #e2e8f0; }
         tbody tr:nth-child(even) { background: #f8fafc; }
+
         .footer { margin-top: 60px; display: flex; justify-content: flex-end; }
         .ttd { text-align: center; min-width: 200px; }
         .ttd p { margin: 4px 0; }
-        @media print { body { padding: 20px; } }
+
+        .rekap-label {
+            font-weight: bold;
+            font-size: 13px;
+            margin: 16px 0 4px 0;
+            text-align: right;
+            color: #374151;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2>LAPORAN KEHADIRAN</h2>
-        <h1>${namaSekolah}</h1>
-        <h3>Periode: ${judulPeriode}</h3>
+    <!-- Label Rekap di pojok kanan atas (pengganti teks browser yang di-suppress) -->
+    <div class="print-top-right">
+        Rekap Absensi - ${namaSekolah}<br>
+        Dicetak: ${tanggalCetak}
     </div>
+
+    <!-- Header utama: Logo kiri + Teks tengah -->
+    <div class="doc-header">
+        <div class="doc-header-logo">
+            ${logoHtml}
+        </div>
+        <div class="doc-header-text">
+            <h2>LAPORAN KEHADIRAN</h2>
+            <h1>${namaSekolah}</h1>
+            <h3>Periode: ${judulPeriode}</h3>
+        </div>
+        <!-- Spacer kanan agar teks tetap di tengah -->
+        <div style="width:72px;flex-shrink:0;"></div>
+    </div>
+
+    <!-- Label rekap di kanan atas tabel -->
+    <div class="rekap-label">Rekap Absensi - ${judulPeriode}</div>
+
     ${rekapOutput.innerHTML}
+
     <div class="footer">
         <div class="ttd">
             <p>Mengetahui,</p>
