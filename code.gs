@@ -95,41 +95,96 @@ function getSettings() {
 }
 
 function submitAbsen(payload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Absensi');
-  const now = new Date();
-  ss.appendRow([
-    now, 
-    payload.id, 
-    payload.nama, 
-    payload.kategori, 
-    payload.tipe, 
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const absenSheet = ss.getSheetByName('Absensi');
+  const tz = Session.getScriptTimeZone();
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  // Cek status absen hari ini untuk NIP ini
+  const status = _getStatusHariIni(absenSheet, payload.id, today, tz);
+
+  if (payload.tipe === 'Datang') {
+    if (status.sudahDatang) {
+      return { ok: false, pesan: "⚠️ Anda sudah tercatat DATANG hari ini!" };
+    }
+  } else if (payload.tipe === 'Pulang') {
+    if (!status.sudahDatang) {
+      return { ok: false, pesan: "⚠️ Anda belum absen DATANG hari ini!" };
+    }
+    if (status.sudahPulang) {
+      return { ok: false, pesan: "⚠️ Anda sudah tercatat PULANG hari ini!" };
+    }
+  }
+
+  absenSheet.appendRow([
+    new Date(),
+    payload.id,
+    payload.nama,
+    payload.kategori,
+    payload.tipe,
     'Hadir'
   ]);
-  return "Absen " + payload.tipe + " berhasil dikirim!";
+  return { ok: true, pesan: "✅ Absen " + payload.tipe + " berhasil dicatat!" };
+}
+
+// Cek status absen hari ini untuk satu NIP (dipanggil dari frontend saat pilih nama)
+function getStatusAbsenHariIni(nip) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const absenSheet = ss.getSheetByName('Absensi');
+  const tz = Session.getScriptTimeZone();
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  return _getStatusHariIni(absenSheet, nip, today, tz);
+}
+
+// Helper internal: kembalikan { sudahDatang, sudahPulang }
+function _getStatusHariIni(sheet, nip, today, tz) {
+  let sudahDatang = false, sudahPulang = false;
+  if (!sheet || sheet.getLastRow() <= 1) return { sudahDatang, sudahPulang };
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  values.forEach(row => {
+    const ts = row[0];
+    if (!ts) return;
+    const tsDate = ts instanceof Date ? ts : new Date(ts);
+    const rowDate = Utilities.formatDate(tsDate, tz, 'yyyy-MM-dd');
+    if (rowDate !== today) return;
+    if (String(row[1]) !== String(nip)) return;
+    const tipe = String(row[4]).trim();
+    if (tipe === 'Datang') sudahDatang = true;
+    if (tipe === 'Pulang') sudahPulang = true;
+  });
+  return { sudahDatang, sudahPulang };
 }
 
 // Ambil rekap absensi berdasarkan bulan (format: "YYYY-MM") - difilter di server
 function getRekapBulan(bulan) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Absensi');
   if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  if (values.length <= 1) return [];
-  const headers = values[0].map(h => h.toString().toLowerCase());
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  // Baca langsung berdasarkan posisi kolom (bukan nama header)
+  // Urutan kolom: [0]Timestamp [1]ID/NIP [2]Nama [3]Kategori [4]Tipe [5]Status
+  const tz = Session.getScriptTimeZone();
+  const values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
   const result = [];
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
+
+  values.forEach(row => {
     const ts = row[0];
-    if (!ts) continue;
+    if (!ts) return;
     const tsDate = ts instanceof Date ? ts : new Date(ts);
-    const rowBulan = Utilities.formatDate(tsDate, Session.getScriptTimeZone(), 'yyyy-MM');
+    const rowBulan = Utilities.formatDate(tsDate, tz, 'yyyy-MM');
     if (rowBulan === bulan) {
-      const obj = {};
-      headers.forEach((h, idx) => obj[h] = row[idx] instanceof Date
-        ? Utilities.formatDate(row[idx], Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
-        : row[idx]);
-      result.push(obj);
+      result.push({
+        timestamp: Utilities.formatDate(tsDate, tz, 'dd/MM/yyyy HH:mm'),
+        nip:       String(row[1]),   // Kolom B: ID/NIP
+        nama:      String(row[2]),   // Kolom C: Nama
+        kategori:  String(row[3]),   // Kolom D: Kategori (Guru/Staff)
+        tipe:      String(row[4]),   // Kolom E: Tipe (Datang/Pulang)
+        status:    String(row[5])    // Kolom F: Status
+      });
     }
-  }
+  });
+
   return result;
 }
 

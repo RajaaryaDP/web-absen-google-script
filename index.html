@@ -110,17 +110,19 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Nama / NIP</label>
-                            <select id="abs-user" class="w-full p-3 border rounded-lg">
+                            <select id="abs-user" onchange="cekStatusAbsen()" class="w-full p-3 border rounded-lg">
                                 <option value="">Pilih Nama...</option>
                             </select>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 pt-4">
-                            <button onclick="submitAbsen('Datang')"
-                                class="bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 font-bold">
+                        <!-- Status Badge -->
+                        <div id="abs-status-box" class="hidden rounded-lg p-3 text-sm font-medium border"></div>
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <button id="btn-datang" onclick="submitAbsen('Datang')"
+                                class="bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                                 <i class="fas fa-sign-in-alt mr-2"></i> ABSEN DATANG
                             </button>
-                            <button onclick="submitAbsen('Pulang')"
-                                class="bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 font-bold">
+                            <button id="btn-pulang" onclick="submitAbsen('Pulang')"
+                                class="bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                                 <i class="fas fa-sign-out-alt mr-2"></i> ABSEN PULANG
                             </button>
                         </div>
@@ -293,6 +295,8 @@
 
         function loadUserList() {
             const kat = document.getElementById('abs-kategori').value;
+            // Reset status saat ganti kategori
+            resetStatusAbsen();
             google.script.run.withSuccessHandler(data => {
                 currentUserData = data;
                 let html = '<option value="">Pilih Nama...</option>';
@@ -301,6 +305,59 @@
                 });
                 document.getElementById('abs-user').innerHTML = html;
             }).getData(kat);
+        }
+
+        function resetStatusAbsen() {
+            const box = document.getElementById('abs-status-box');
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            document.getElementById('btn-datang').disabled = false;
+            document.getElementById('btn-pulang').disabled = false;
+        }
+
+        function cekStatusAbsen() {
+            const nip = document.getElementById('abs-user').value;
+            if (!nip) { resetStatusAbsen(); return; }
+
+            toggleLoading(true);
+            google.script.run
+                .withSuccessHandler(status => {
+                    toggleLoading(false);
+                    updateStatusAbsen(status);
+                })
+                .withFailureHandler(() => toggleLoading(false))
+                .getStatusAbsenHariIni(nip);
+        }
+
+        function updateStatusAbsen(status) {
+            const box = document.getElementById('abs-status-box');
+            const btnDatang = document.getElementById('btn-datang');
+            const btnPulang = document.getElementById('btn-pulang');
+
+            // Reset dulu
+            btnDatang.disabled = false;
+            btnPulang.disabled = false;
+
+            if (status.sudahDatang && status.sudahPulang) {
+                // Sudah datang & pulang — keduanya dikunci
+                box.className = 'rounded-lg p-3 text-sm font-medium border bg-slate-100 text-slate-600 border-slate-300';
+                box.innerHTML = '✅ Sudah absen <b>Datang</b> dan <b>Pulang</b> hari ini. Absensi selesai.';
+                btnDatang.disabled = true;
+                btnPulang.disabled = true;
+            } else if (status.sudahDatang) {
+                // Sudah datang, belum pulang
+                box.className = 'rounded-lg p-3 text-sm font-medium border bg-green-50 text-green-700 border-green-300';
+                box.innerHTML = '✅ Sudah absen <b>Datang</b>. Silahkan absen <b>Pulang</b> saat selesai.';
+                btnDatang.disabled = true;
+                btnPulang.disabled = false;
+            } else {
+                // Belum datang sama sekali
+                box.className = 'rounded-lg p-3 text-sm font-medium border bg-yellow-50 text-yellow-700 border-yellow-300';
+                box.innerHTML = '⏳ Belum absen hari ini. Silahkan absen <b>Datang</b> terlebih dahulu.';
+                btnDatang.disabled = false;
+                btnPulang.disabled = true;
+            }
+            box.classList.remove('hidden');
         }
 
         function submitAbsen(tipe) {
@@ -316,10 +373,20 @@
             };
 
             toggleLoading(true);
-            google.script.run.withSuccessHandler(res => {
-                alert(res);
-                toggleLoading(false);
-            }).submitAbsen(payload);
+            google.script.run
+                .withSuccessHandler(res => {
+                    toggleLoading(false);
+                    alert(res.pesan);
+                    if (res.ok) {
+                        // Update status UI setelah absen berhasil
+                        cekStatusAbsen();
+                    }
+                })
+                .withFailureHandler(err => {
+                    toggleLoading(false);
+                    alert("Terjadi error: " + err.message);
+                })
+                .submitAbsen(payload);
         }
 
         function tambahUser() {
@@ -459,7 +526,7 @@
                         html += `<tr class="${idx % 2 === 0 ? '' : 'bg-slate-50'}">
                             <td class="border p-2">${idx + 1}</td>
                             <td class="border p-2">${f.timestamp}</td>
-                            <td class="border p-2">${f.id}</td>
+                            <td class="border p-2">${f.nip}</td>
                             <td class="border p-2">${f.nama}</td>
                             <td class="border p-2">${f.kategori || '-'}</td>
                             <td class="border p-2">${tipeBadge}</td>
