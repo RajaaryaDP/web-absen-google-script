@@ -166,21 +166,26 @@
             <div id="page-rekap" class="page-content hidden space-y-6">
                 <div class="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl shadow-sm border">
                     <div>
-                        <label class="block text-xs mb-1 font-medium text-slate-600">Bulan <span class="text-slate-400">(wajib)</span></label>
+                        <label class="block text-xs mb-1 font-medium text-slate-600">Bulan <span
+                                class="text-slate-400">(wajib)</span></label>
                         <input type="month" id="rekap-bulan" onchange="sinkronTanggal()" class="p-2 border rounded">
                     </div>
                     <div>
-                        <label class="block text-xs mb-1 font-medium text-slate-600">Tanggal <span class="text-slate-400">(opsional)</span></label>
+                        <label class="block text-xs mb-1 font-medium text-slate-600">Tanggal <span
+                                class="text-slate-400">(opsional)</span></label>
                         <input type="date" id="rekap-tanggal" class="p-2 border rounded">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="generateRekap()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                        <button onclick="generateRekap()"
+                            class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
                             <i class="fas fa-search mr-1"></i> Lihat Laporan
                         </button>
-                        <button onclick="resetFilterRekap()" class="bg-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-300 text-sm">
+                        <button onclick="resetFilterRekap()"
+                            class="bg-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-300 text-sm">
                             <i class="fas fa-times mr-1"></i> Reset
                         </button>
-                        <button onclick="printRekap()" class="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800">
+                        <button onclick="printRekap()"
+                            class="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800">
                             <i class="fas fa-print mr-1"></i> Cetak / PDF
                         </button>
                     </div>
