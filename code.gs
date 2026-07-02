@@ -51,6 +51,32 @@ function saveData(sheetName, data) {
   return true;
 }
 
+function deleteData(sheetName, nip) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return "Sheet tidak ditemukan!";
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(nip)) {
+      sheet.deleteRow(i + 1);
+      return "Data berhasil dihapus!";
+    }
+  }
+  return "Data tidak ditemukan!";
+}
+
+function updateData(sheetName, nipLama, dataBaruArr) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return "Sheet tidak ditemukan!";
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(nipLama)) {
+      sheet.getRange(i + 1, 1, 1, dataBaruArr.length).setValues([dataBaruArr]);
+      return "Data berhasil diperbarui!";
+    }
+  }
+  return "Data tidak ditemukan!";
+}
+
 function updateSettings(settingsObj) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pengaturan');
   sheet.clear();
@@ -80,6 +106,31 @@ function submitAbsen(payload) {
     'Hadir'
   ]);
   return "Absen " + payload.tipe + " berhasil dikirim!";
+}
+
+// Ambil rekap absensi berdasarkan bulan (format: "YYYY-MM") - difilter di server
+function getRekapBulan(bulan) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Absensi');
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  const headers = values[0].map(h => h.toString().toLowerCase());
+  const result = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const ts = row[0];
+    if (!ts) continue;
+    const tsDate = ts instanceof Date ? ts : new Date(ts);
+    const rowBulan = Utilities.formatDate(tsDate, Session.getScriptTimeZone(), 'yyyy-MM');
+    if (rowBulan === bulan) {
+      const obj = {};
+      headers.forEach((h, idx) => obj[h] = row[idx] instanceof Date
+        ? Utilities.formatDate(row[idx], Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
+        : row[idx]);
+      result.push(obj);
+    }
+  }
+  return result;
 }
 
 function getStats() {

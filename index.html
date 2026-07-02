@@ -150,6 +150,7 @@
                                 <th class="p-4">NIP</th>
                                 <th class="p-4">Nama</th>
                                 <th class="p-4">Kategori</th>
+                                <th class="p-4">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-user-body">
@@ -325,6 +326,14 @@
                         <td class="p-4">${g.nip}</td>
                         <td class="p-4">${g.nama}</td>
                         <td class="p-4 text-blue-600 font-semibold">Guru</td>
+                        <td class="p-4">
+                            <button onclick="editUser('${g.nip}', '${g.nama}', 'Guru')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button onclick="hapusUser('${g.nip}', 'Guru')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
+                                <i class="fas fa-trash mr-1"></i>Hapus
+                            </button>
+                        </td>
                     </tr>`;
                 });
                 google.script.run.withSuccessHandler(staffs => {
@@ -333,11 +342,50 @@
                             <td class="p-4">${s.nip}</td>
                             <td class="p-4">${s.nama}</td>
                             <td class="p-4 text-orange-600 font-semibold">Staff</td>
+                            <td class="p-4">
+                                <button onclick="editUser('${s.nip}', '${s.nama}', 'Staff')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button onclick="hapusUser('${s.nip}', 'Staff')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
+                                    <i class="fas fa-trash mr-1"></i>Hapus
+                                </button>
+                            </td>
                         </tr>`;
                     });
                     document.getElementById('table-user-body').innerHTML = html;
                 }).getData('Staff');
             }).getData('Guru');
+        }
+
+        function hapusUser(nip, kategori) {
+            if (!confirm(`Yakin ingin menghapus data dengan NIP ${nip}?`)) return;
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(res => {
+                alert(res || "Data berhasil dihapus!");
+                refreshTable();
+                toggleLoading(false);
+            }).withFailureHandler(err => {
+                alert("Gagal menghapus: " + err.message);
+                toggleLoading(false);
+            }).deleteData(kategori, nip);
+        }
+
+        function editUser(nip, nama, kategori) {
+            const nipBaru = prompt("Edit NIP:", nip);
+            if (nipBaru === null) return;
+            const namaBaru = prompt("Edit Nama:", nama);
+            if (namaBaru === null) return;
+            if (!nipBaru.trim() || !namaBaru.trim()) return alert("NIP dan Nama tidak boleh kosong!");
+
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(res => {
+                alert(res || "Data berhasil diperbarui!");
+                refreshTable();
+                toggleLoading(false);
+            }).withFailureHandler(err => {
+                alert("Gagal mengubah: " + err.message);
+                toggleLoading(false);
+            }).updateData(kategori, nip, [nipBaru.trim(), namaBaru.trim(), kategori]);
         }
 
         function saveSettings() {
@@ -358,65 +406,113 @@
             if (!bulan) return alert("Pilih bulan!");
 
             toggleLoading(true);
-            google.script.run.withSuccessHandler(data => {
-                const filtered = data.filter(a => a.timestamp.includes(bulan));
-                let html = `<table class="w-full border-collapse border mt-4 text-sm">
-                    <thead><tr class="bg-slate-100">
-                        <th class="border p-2">Tanggal/Jam</th>
-                        <th class="border p-2">NIP</th>
-                        <th class="border p-2">Nama</th>
-                        <th class="border p-2">Tipe</th>
-                    </tr></thead><tbody>`;
+            document.getElementById('rekap-output').innerHTML = '<p class="text-center text-slate-400 mt-20">Memuat data...</p>';
 
-                filtered.forEach(f => {
-                    html += `<tr>
-                        <td class="border p-2">${new Date(f.timestamp).toLocaleString()}</td>
-                        <td class="border p-2">${f.id}</td>
-                        <td class="border p-2">${f.nama}</td>
-                        <td class="border p-2">${f.tipe}</td>
-                    </tr>`;
-                });
+            google.script.run
+                .withSuccessHandler(data => {
+                    if (!data || data.length === 0) {
+                        document.getElementById('rekap-output').innerHTML =
+                            '<p class="text-center text-slate-400 mt-20">Tidak ada data absensi untuk bulan ini.</p>';
+                        toggleLoading(false);
+                        return;
+                    }
 
-                html += `</tbody></table>`;
-                document.getElementById('rekap-output').innerHTML = html;
-                toggleLoading(false);
-            }).getData('Absensi');
+                    // Format nama bulan untuk judul
+                    const [year, month] = bulan.split('-');
+                    const namaBulan = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+                    let html = `<h3 class="font-bold text-base mb-3">Rekap Absensi - ${namaBulan} (${data.length} data)</h3>`;
+                    html += `<table class="w-full border-collapse border mt-2 text-sm">
+                        <thead><tr class="bg-slate-100">
+                            <th class="border p-2 text-left">#</th>
+                            <th class="border p-2 text-left">Tanggal/Jam</th>
+                            <th class="border p-2 text-left">NIP</th>
+                            <th class="border p-2 text-left">Nama</th>
+                            <th class="border p-2 text-left">Kategori</th>
+                            <th class="border p-2 text-left">Tipe</th>
+                        </tr></thead><tbody>`;
+
+                    data.forEach((f, idx) => {
+                        const tipeBadge = f.tipe === 'Datang'
+                            ? `<span style="color:#16a34a;font-weight:600">Datang</span>`
+                            : `<span style="color:#ea580c;font-weight:600">Pulang</span>`;
+                        html += `<tr class="${idx % 2 === 0 ? '' : 'bg-slate-50'}">
+                            <td class="border p-2">${idx + 1}</td>
+                            <td class="border p-2">${f.timestamp}</td>
+                            <td class="border p-2">${f.id}</td>
+                            <td class="border p-2">${f.nama}</td>
+                            <td class="border p-2">${f.kategori || '-'}</td>
+                            <td class="border p-2">${tipeBadge}</td>
+                        </tr>`;
+                    });
+
+                    html += `</tbody></table>`;
+                    document.getElementById('rekap-output').innerHTML = html;
+                    toggleLoading(false);
+                })
+                .withFailureHandler(err => {
+                    document.getElementById('rekap-output').innerHTML =
+                        `<p class="text-center text-red-500 mt-20">Error: ${err.message}</p>`;
+                    toggleLoading(false);
+                })
+                .getRekapBulan(bulan);
         }
 
         function printRekap() {
-            const content = document.getElementById('rekap-output').innerHTML;
+            const rekapOutput = document.getElementById('rekap-output');
+            const tabelHTML = rekapOutput.querySelector('table');
+            if (!tabelHTML) return alert("Tampilkan rekap terlebih dahulu sebelum mencetak!");
+
+            const bulan = document.getElementById('rekap-bulan').value;
+            const [year, month] = bulan.split('-');
+            const namaBulan = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+            const namaSekolah = (currentSettings && currentSettings.nama_sekolah) || 'Sekolah';
+            const kepsek = (currentSettings && currentSettings.kepala_sekolah) || '-';
+            const nipKepsek = (currentSettings && currentSettings.nip_kepsek) || '-';
+
             const win = window.open('', '_blank');
-            win.document.write(`
-                <html>
-                <head>
-                    <title>Rekap Absensi - ${currentSettings.nama_sekolah}</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 40px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid black; padding: 8px; text-align: left; }
-                        .header { text-align: center; margin-bottom: 30px; }
-                        .footer { margin-top: 50px; float: right; text-align: center; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h2>LAPORAN KEHADIRAN</h2>
-                        <h1>${currentSettings.nama_sekolah}</h1>
-                        <p>Bulan: ${document.getElementById('rekap-bulan').value}</p>
-                    </div>
-                    ${content}
-                    <div class="footer">
-                        <p>Mengetahui,</p>
-                        <p>Kepala Sekolah</p>
-                        <br><br><br>
-                        <p><b>${currentSettings.kepala_sekolah}</b></p>
-                        <p>NIP. ${currentSettings.nip_kepsek}</p>
-                    </div>
-                </body>
-                </html>
-            `);
+            win.document.write(`<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Rekap Absensi - ${namaSekolah}</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; font-size: 13px; }
+        h1, h2, h3 { margin: 4px 0; }
+        .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #000; padding-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { border: 1px solid #333; padding: 7px 10px; text-align: left; }
+        thead tr { background: #e2e8f0; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        .footer { margin-top: 60px; display: flex; justify-content: flex-end; }
+        .ttd { text-align: center; min-width: 200px; }
+        .ttd p { margin: 4px 0; }
+        @media print { body { padding: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>LAPORAN KEHADIRAN</h2>
+        <h1>${namaSekolah}</h1>
+        <h3>Periode: ${namaBulan}</h3>
+    </div>
+    ${rekapOutput.innerHTML}
+    <div class="footer">
+        <div class="ttd">
+            <p>Mengetahui,</p>
+            <p>Kepala Sekolah</p>
+            <br><br><br>
+            <p><b>${kepsek}</b></p>
+            <p>NIP. ${nipKepsek}</p>
+        </div>
+    </div>
+</body>
+</html>`);
             win.document.close();
-            win.print();
+            // Tunggu sampai dokumen selesai load sebelum print
+            win.onload = function () { win.print(); };
+            // Fallback jika onload tidak terpanggil (tab langsung siap)
+            setTimeout(() => { try { win.print(); } catch(e) {} }, 800);
         }
 
         function runSetup() {
