@@ -166,13 +166,24 @@
             <div id="page-rekap" class="page-content hidden space-y-6">
                 <div class="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl shadow-sm border">
                     <div>
-                        <label class="block text-xs mb-1">Bulan</label>
-                        <input type="month" id="rekap-bulan" class="p-2 border rounded">
+                        <label class="block text-xs mb-1 font-medium text-slate-600">Bulan <span class="text-slate-400">(wajib)</span></label>
+                        <input type="month" id="rekap-bulan" onchange="sinkronTanggal()" class="p-2 border rounded">
                     </div>
-                    <button onclick="generateRekap()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg">Lihat
-                        Laporan</button>
-                    <button onclick="printRekap()" class="bg-slate-700 text-white px-6 py-2 rounded-lg">Cetak /
-                        PDF</button>
+                    <div>
+                        <label class="block text-xs mb-1 font-medium text-slate-600">Tanggal <span class="text-slate-400">(opsional)</span></label>
+                        <input type="date" id="rekap-tanggal" class="p-2 border rounded">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="generateRekap()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                            <i class="fas fa-search mr-1"></i> Lihat Laporan
+                        </button>
+                        <button onclick="resetFilterRekap()" class="bg-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-300 text-sm">
+                            <i class="fas fa-times mr-1"></i> Reset
+                        </button>
+                        <button onclick="printRekap()" class="bg-slate-700 text-white px-6 py-2 rounded-lg hover:bg-slate-800">
+                            <i class="fas fa-print mr-1"></i> Cetak / PDF
+                        </button>
+                    </div>
                 </div>
                 <div id="rekap-container" class="bg-white p-8 rounded-xl shadow-sm min-h-[400px]">
                     <div id="rekap-output" class="overflow-x-auto">
@@ -488,71 +499,103 @@
             }).updateSettings(obj);
         }
 
+        function sinkronTanggal() {
+            // Jika bulan diubah, reset input tanggal agar tidak konflik
+            document.getElementById('rekap-tanggal').value = '';
+        }
+
+        function resetFilterRekap() {
+            document.getElementById('rekap-bulan').value = '';
+            document.getElementById('rekap-tanggal').value = '';
+            document.getElementById('rekap-output').innerHTML =
+                '<p class="text-center text-slate-400 mt-20">Silahkan pilih periode rekap...</p>';
+        }
+
         function generateRekap() {
             const bulan = document.getElementById('rekap-bulan').value;
-            if (!bulan) return alert("Pilih bulan!");
+            const tanggal = document.getElementById('rekap-tanggal').value;
+            if (!bulan) return alert('Pilih bulan terlebih dahulu!');
 
             toggleLoading(true);
             document.getElementById('rekap-output').innerHTML = '<p class="text-center text-slate-400 mt-20">Memuat data...</p>';
 
-            google.script.run
-                .withSuccessHandler(data => {
-                    if (!data || data.length === 0) {
-                        document.getElementById('rekap-output').innerHTML =
-                            '<p class="text-center text-slate-400 mt-20">Tidak ada data absensi untuk bulan ini.</p>';
-                        toggleLoading(false);
-                        return;
-                    }
-
-                    // Format nama bulan untuk judul
-                    const [year, month] = bulan.split('-');
-                    const namaBulan = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
-
-                    let html = `<h3 class="font-bold text-base mb-3">Rekap Absensi - ${namaBulan} (${data.length} data)</h3>`;
-                    html += `<table class="w-full border-collapse border mt-2 text-sm">
-                        <thead><tr class="bg-slate-100">
-                            <th class="border p-2 text-left">#</th>
-                            <th class="border p-2 text-left">Tanggal/Jam</th>
-                            <th class="border p-2 text-left">NIP</th>
-                            <th class="border p-2 text-left">Nama</th>
-                            <th class="border p-2 text-left">Kategori</th>
-                            <th class="border p-2 text-left">Tipe</th>
-                        </tr></thead><tbody>`;
-
-                    data.forEach((f, idx) => {
-                        const tipeBadge = f.tipe === 'Datang'
-                            ? `<span style="color:#16a34a;font-weight:600">Datang</span>`
-                            : `<span style="color:#ea580c;font-weight:600">Pulang</span>`;
-                        html += `<tr class="${idx % 2 === 0 ? '' : 'bg-slate-50'}">
-                            <td class="border p-2">${idx + 1}</td>
-                            <td class="border p-2">${f.timestamp}</td>
-                            <td class="border p-2">${f.nip}</td>
-                            <td class="border p-2">${f.nama}</td>
-                            <td class="border p-2">${f.kategori || '-'}</td>
-                            <td class="border p-2">${tipeBadge}</td>
-                        </tr>`;
-                    });
-
-                    html += `</tbody></table>`;
-                    document.getElementById('rekap-output').innerHTML = html;
-                    toggleLoading(false);
-                })
-                .withFailureHandler(err => {
+            const onSuccess = data => {
+                toggleLoading(false);
+                if (!data || data.length === 0) {
                     document.getElementById('rekap-output').innerHTML =
-                        `<p class="text-center text-red-500 mt-20">Error: ${err.message}</p>`;
-                    toggleLoading(false);
-                })
-                .getRekapBulan(bulan);
+                        '<p class="text-center text-slate-400 mt-20">Tidak ada data absensi untuk periode ini.</p>';
+                    return;
+                }
+
+                // Label judul sesuai filter
+                const [year, month] = bulan.split('-');
+                const namaBulan = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                const judulPeriode = tanggal
+                    ? new Date(tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                    : namaBulan;
+
+                let html = `<h3 class="font-bold text-base mb-3">Rekap Absensi - ${judulPeriode} <span class="text-slate-400 font-normal text-sm">(${data.length} data)</span></h3>`;
+                html += `<table class="w-full border-collapse border mt-2 text-sm">
+                    <thead><tr class="bg-slate-100">
+                        <th class="border p-2 text-left">#</th>
+                        <th class="border p-2 text-left">Tanggal/Jam</th>
+                        <th class="border p-2 text-left">NIP</th>
+                        <th class="border p-2 text-left">Nama</th>
+                        <th class="border p-2 text-left">Kategori</th>
+                        <th class="border p-2 text-left">Tipe</th>
+                    </tr></thead><tbody>`;
+
+                data.forEach((f, idx) => {
+                    const tipeBadge = f.tipe === 'Datang'
+                        ? `<span style="color:#16a34a;font-weight:600">Datang</span>`
+                        : `<span style="color:#ea580c;font-weight:600">Pulang</span>`;
+                    html += `<tr class="${idx % 2 === 0 ? '' : 'bg-slate-50'}">
+                        <td class="border p-2">${idx + 1}</td>
+                        <td class="border p-2">${f.timestamp}</td>
+                        <td class="border p-2">${f.nip}</td>
+                        <td class="border p-2">${f.nama}</td>
+                        <td class="border p-2">${f.kategori || '-'}</td>
+                        <td class="border p-2">${tipeBadge}</td>
+                    </tr>`;
+                });
+
+                html += `</tbody></table>`;
+                document.getElementById('rekap-output').innerHTML = html;
+            };
+
+            const onError = err => {
+                document.getElementById('rekap-output').innerHTML =
+                    `<p class="text-center text-red-500 mt-20">Error: ${err.message}</p>`;
+                toggleLoading(false);
+            };
+
+            if (tanggal) {
+                // Filter per tanggal spesifik
+                google.script.run
+                    .withSuccessHandler(onSuccess)
+                    .withFailureHandler(onError)
+                    .getRekapTanggal(tanggal);
+            } else {
+                // Filter per bulan
+                google.script.run
+                    .withSuccessHandler(onSuccess)
+                    .withFailureHandler(onError)
+                    .getRekapBulan(bulan);
+            }
         }
 
         function printRekap() {
             const rekapOutput = document.getElementById('rekap-output');
             const tabelHTML = rekapOutput.querySelector('table');
-            if (!tabelHTML) return alert("Tampilkan rekap terlebih dahulu sebelum mencetak!");
+            if (!tabelHTML) return alert('Tampilkan rekap terlebih dahulu sebelum mencetak!');
 
             const bulan = document.getElementById('rekap-bulan').value;
+            const tanggal = document.getElementById('rekap-tanggal').value;
             const [year, month] = bulan.split('-');
             const namaBulan = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+            const judulPeriode = tanggal
+                ? new Date(tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                : namaBulan;
             const namaSekolah = (currentSettings && currentSettings.nama_sekolah) || 'Sekolah';
             const kepsek = (currentSettings && currentSettings.kepala_sekolah) || '-';
             const nipKepsek = (currentSettings && currentSettings.nip_kepsek) || '-';
@@ -581,7 +624,7 @@
     <div class="header">
         <h2>LAPORAN KEHADIRAN</h2>
         <h1>${namaSekolah}</h1>
-        <h3>Periode: ${namaBulan}</h3>
+        <h3>Periode: ${judulPeriode}</h3>
     </div>
     ${rekapOutput.innerHTML}
     <div class="footer">
@@ -603,8 +646,22 @@
         }
 
         function runSetup() {
-            if (confirm("Jalankan setup database? Ini akan membuat sheet yang diperlukan.")) {
-                google.script.run.withSuccessHandler(msg => alert(msg)).setupDatabase();
+            if (confirm("⚠️ PERINGATAN!\n\nReset database akan MENGHAPUS SEMUA DATA:\n• Seluruh data Guru & Staff\n• Seluruh riwayat Absensi\n• Pengaturan dikembalikan ke default\n\nApakah Anda yakin ingin melanjutkan?")) {
+                toggleLoading(true);
+                google.script.run
+                    .withSuccessHandler(msg => {
+                        alert(msg);
+                        toggleLoading(false);
+                        // Refresh semua bagian yang terdampak
+                        loadGlobalSettings();
+                        loadStats();
+                        refreshTable();
+                    })
+                    .withFailureHandler(err => {
+                        alert("Gagal reset: " + err.message);
+                        toggleLoading(false);
+                    })
+                    .resetDatabase();
             }
         }
     </script>

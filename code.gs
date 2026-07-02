@@ -11,14 +11,14 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// Inisialisasi Spreadsheet dan Sheet Otomatis
+// Inisialisasi Spreadsheet dan Sheet Otomatis (hanya buat jika belum ada)
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = {
     'Pengaturan': [['Key', 'Value'], ['nama_sekolah', 'Sekolah Contoh'], ['kepala_sekolah', '-'], ['nip_kepsek', '-'], ['logo_url', '']],
-    'Guru': [['NIP', 'Nama', 'Jabatan']],
-    'Staff': [['NIP', 'Nama', 'Jabatan']],
-    'Absensi': [['Timestamp', 'ID', 'Nama', 'Kategori', 'Tipe', 'Status']] // Kategori: Guru/Staff, Tipe: Datang/Pulang
+    'Guru':       [['NIP', 'Nama', 'Jabatan']],
+    'Staff':      [['NIP', 'Nama', 'Jabatan']],
+    'Absensi':    [['Timestamp', 'ID', 'Nama', 'Kategori', 'Tipe', 'Status']]
   };
 
   for (let name in sheets) {
@@ -30,6 +30,43 @@ function setupDatabase() {
     }
   }
   return "Database berhasil disiapkan!";
+}
+
+// Reset penuh: hapus semua data di setiap sheet, tulis ulang header & default settings
+function resetDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Definisi tiap sheet: [header_row, ...default_data_rows]
+  const definitions = {
+    'Pengaturan': [
+      ['Key', 'Value'],
+      ['nama_sekolah', 'Sekolah Contoh'],
+      ['kepala_sekolah', '-'],
+      ['nip_kepsek', '-'],
+      ['logo_url', '']
+    ],
+    'Guru':    [['NIP', 'Nama', 'Jabatan']],
+    'Staff':   [['NIP', 'Nama', 'Jabatan']],
+    'Absensi': [['Timestamp', 'ID', 'Nama', 'Kategori', 'Tipe', 'Status']]
+  };
+
+  for (let name in definitions) {
+    let sheet = ss.getSheetByName(name);
+
+    if (!sheet) {
+      // Buat baru kalau belum ada
+      sheet = ss.insertSheet(name);
+    } else {
+      // Hapus seluruh isi sheet
+      sheet.clearContents();
+    }
+
+    const data = definitions[name];
+    sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+    sheet.getRange(1, 1, 1, data[0].length).setFontWeight('bold').setBackground('#f3f3f3');
+  }
+
+  return "✅ Database berhasil direset! Semua data Guru, Staff, dan Absensi telah dihapus.";
 }
 
 // Fungsi CRUD & Data Handling
@@ -181,6 +218,37 @@ function getRekapBulan(bulan) {
         kategori:  String(row[3]),   // Kolom D: Kategori (Guru/Staff)
         tipe:      String(row[4]),   // Kolom E: Tipe (Datang/Pulang)
         status:    String(row[5])    // Kolom F: Status
+      });
+    }
+  });
+
+  return result;
+}
+
+// Ambil rekap absensi berdasarkan tanggal spesifik (format: "YYYY-MM-DD") - difilter di server
+function getRekapTanggal(tanggal) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Absensi');
+  if (!sheet) return [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  const tz = Session.getScriptTimeZone();
+  const values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  const result = [];
+
+  values.forEach(row => {
+    const ts = row[0];
+    if (!ts) return;
+    const tsDate = ts instanceof Date ? ts : new Date(ts);
+    const rowTanggal = Utilities.formatDate(tsDate, tz, 'yyyy-MM-dd');
+    if (rowTanggal === tanggal) {
+      result.push({
+        timestamp: Utilities.formatDate(tsDate, tz, 'dd/MM/yyyy HH:mm'),
+        nip:       String(row[1]),
+        nama:      String(row[2]),
+        kategori:  String(row[3]),
+        tipe:      String(row[4]),
+        status:    String(row[5])
       });
     }
   });
