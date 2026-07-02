@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sistem Absensi Sekolah</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .sidebar-item {
+            transition: all 0.3s;
+        }
+
+        .sidebar-item:hover {
+            background-color: #1e293b;
+            color: white;
+        }
+
+        .active-menu {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <div class="w-64 bg-slate-900 text-slate-300 flex flex-col hidden md:flex">
+        <div class="p-6 text-center border-b border-slate-800">
+            <h1 id="side-school-name" class="text-white font-bold text-lg uppercase tracking-wider">Loading...</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <button onclick="showPage('dashboard')"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="btn-dashboard">
+                <i class="fas fa-chart-line w-5"></i> <span>Dashboard</span>
+            </button>
+            <button onclick="showPage('absen')" class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item"
+                id="btn-absen">
+                <i class="fas fa-user-check w-5"></i> <span>Absensi</span>
+            </button>
+            <button onclick="showPage('data')" class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item"
+                id="btn-data">
+                <i class="fas fa-users w-5"></i> <span>Data Guru & Staff</span>
+            </button>
+            <button onclick="showPage('rekap')" class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item"
+                id="btn-rekap">
+                <i class="fas fa-file-invoice w-5"></i> <span>Rekap Absen</span>
+            </button>
+            <button onclick="showPage('settings')"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="btn-settings">
+                <i class="fas fa-cog w-5"></i> <span>Pengaturan</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-y-auto">
+        <header class="bg-white border-b p-4 flex justify-between items-center px-8">
+            <h2 id="page-title" class="text-xl font-semibold text-slate-700">Dashboard</h2>
+            <div id="loading-spinner" class="hidden animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+        </header>
+
+        <main class="p-8">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page-content space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-slate-500 text-sm">Total Guru</p>
+                        <h3 id="stat-guru" class="text-3xl font-bold">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-slate-500 text-sm">Total Staff</p>
+                        <h3 id="stat-staff" class="text-3xl font-bold">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-slate-500 text-sm">Absen Hari Ini</p>
+                        <h3 id="stat-today" class="text-3xl font-bold">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 text-blue-600">
+                        <p class="text-slate-500 text-sm">Status Server</p>
+                        <h3 class="text-xl font-bold">Online</h3>
+                    </div>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80 flex items-center justify-center">
+                    <canvas id="absenChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Absen Page -->
+            <div id="page-absen" class="page-content hidden max-w-2xl mx-auto space-y-6">
+                <div class="bg-white p-8 rounded-xl shadow-lg border">
+                    <h3 class="text-2xl font-bold text-center mb-6">Silahkan Absen</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Pilih Kategori</label>
+                            <select id="abs-kategori" onchange="loadUserList()" class="w-full p-3 border rounded-lg">
+                                <option value="Guru">Guru</option>
+                                <option value="Staff">Staff</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Nama / NIP</label>
+                            <select id="abs-user" class="w-full p-3 border rounded-lg">
+                                <option value="">Pilih Nama...</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 pt-4">
+                            <button onclick="submitAbsen('Datang')"
+                                class="bg-green-600 text-white p-4 rounded-xl hover:bg-green-700 font-bold">
+                                <i class="fas fa-sign-in-alt mr-2"></i> ABSEN DATANG
+                            </button>
+                            <button onclick="submitAbsen('Pulang')"
+                                class="bg-orange-600 text-white p-4 rounded-xl hover:bg-orange-700 font-bold">
+                                <i class="fas fa-sign-out-alt mr-2"></i> ABSEN PULANG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management Page -->
+            <div id="page-data" class="page-content hidden space-y-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h4 class="font-bold mb-4">Input Data Baru</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="text" id="inp-nip" placeholder="NIP" class="p-2 border rounded">
+                        <input type="text" id="inp-nama" placeholder="Nama Lengkap" class="p-2 border rounded">
+                        <select id="inp-jabatan" class="p-2 border rounded">
+                            <option value="Guru">Guru</option>
+                            <option value="Staff">Staff</option>
+                        </select>
+                        <button onclick="tambahUser()"
+                            class="bg-blue-600 text-white rounded p-2 hover:bg-blue-700">Simpan Data</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="p-4">NIP</th>
+                                <th class="p-4">Nama</th>
+                                <th class="p-4">Kategori</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-user-body">
+                            <!-- Data injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Rekap Page -->
+            <div id="page-rekap" class="page-content hidden space-y-6">
+                <div class="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl shadow-sm border">
+                    <div>
+                        <label class="block text-xs mb-1">Bulan</label>
+                        <input type="month" id="rekap-bulan" class="p-2 border rounded">
+                    </div>
+                    <button onclick="generateRekap()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg">Lihat
+                        Laporan</button>
+                    <button onclick="printRekap()" class="bg-slate-700 text-white px-6 py-2 rounded-lg">Cetak /
+                        PDF</button>
+                </div>
+                <div id="rekap-container" class="bg-white p-8 rounded-xl shadow-sm min-h-[400px]">
+                    <div id="rekap-output" class="overflow-x-auto">
+                        <p class="text-center text-slate-400 mt-20">Silahkan pilih periode rekap...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="page-settings" class="page-content hidden max-w-3xl mx-auto">
+                <div class="bg-white p-8 rounded-xl shadow-sm border space-y-4">
+                    <h3 class="font-bold text-lg border-b pb-2">Identitas Sekolah</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <input type="text" id="set-nama-sekolah" placeholder="Nama Sekolah"
+                            class="p-3 border rounded-lg w-full">
+                        <input type="text" id="set-logo" placeholder="URL Logo (Opsional)"
+                            class="p-3 border rounded-lg w-full">
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="text" id="set-kepsek" placeholder="Nama Kepala Sekolah"
+                                class="p-3 border rounded-lg">
+                            <input type="text" id="set-nip-kepsek" placeholder="NIP Kepala Sekolah"
+                                class="p-3 border rounded-lg">
+                        </div>
+                        <button onclick="saveSettings()" class="bg-green-600 text-white p-3 rounded-lg font-bold">Update
+                            Pengaturan</button>
+                        <button onclick="runSetup()" class="text-xs text-slate-400 underline">Reset / Setup Database
+                            Ulang</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentUserData = [];
+        let currentSettings = {};
+
+        // Navigation
+        function showPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active-menu'));
+
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            document.getElementById('btn-' + pageId).classList.add('active-menu');
+            document.getElementById('page-title').innerText = pageId.toUpperCase();
+
+            if (pageId === 'dashboard') loadStats();
+            if (pageId === 'data') refreshTable();
+            if (pageId === 'absen') loadUserList();
+        }
+
+        // Initialize
+        window.onload = () => {
+            loadGlobalSettings();
+            showPage('dashboard');
+        };
+
+        function toggleLoading(show) {
+            document.getElementById('loading-spinner').classList.toggle('hidden', !show);
+        }
+
+        function loadGlobalSettings() {
+            google.script.run.withSuccessHandler(data => {
+                currentSettings = data;
+                document.getElementById('side-school-name').innerText = data.nama_sekolah || "SISABSEN";
+                document.getElementById('set-nama-sekolah').value = data.nama_sekolah || "";
+                document.getElementById('set-kepsek').value = data.kepala_sekolah || "";
+                document.getElementById('set-nip-kepsek').value = data.nip_kepsek || "";
+                document.getElementById('set-logo').value = data.logo_url || "";
+            }).getSettings();
+        }
+
+        function loadStats() {
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(stats => {
+                document.getElementById('stat-guru').innerText = stats.total_guru;
+                document.getElementById('stat-staff').innerText = stats.total_staff;
+                document.getElementById('stat-today').innerText = stats.absen_hari_ini;
+                renderChart(stats.datang, stats.pulang);
+                toggleLoading(false);
+            }).getStats();
+        }
+
+        function renderChart(datang, pulang) {
+            const ctx = document.getElementById('absenChart').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Absen Datang', 'Absen Pulang'],
+                    datasets: [{
+                        label: 'Jumlah Kehadiran Hari Ini',
+                        data: [datang, pulang],
+                        backgroundColor: ['#10b981', '#f59e0b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function loadUserList() {
+            const kat = document.getElementById('abs-kategori').value;
+            google.script.run.withSuccessHandler(data => {
+                currentUserData = data;
+                let html = '<option value="">Pilih Nama...</option>';
+                data.forEach(u => {
+                    html += `<option value="${u.nip}">${u.nama} (${u.nip})</option>`;
+                });
+                document.getElementById('abs-user').innerHTML = html;
+            }).getData(kat);
+        }
+
+        function submitAbsen(tipe) {
+            const nip = document.getElementById('abs-user').value;
+            if (!nip) return alert("Pilih nama terlebih dahulu!");
+
+            const user = currentUserData.find(u => u.nip == nip);
+            const payload = {
+                id: nip,
+                nama: user.nama,
+                kategori: document.getElementById('abs-kategori').value,
+                tipe: tipe
+            };
+
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(res => {
+                alert(res);
+                toggleLoading(false);
+            }).submitAbsen(payload);
+        }
+
+        function tambahUser() {
+            const data = [
+                document.getElementById('inp-nip').value,
+                document.getElementById('inp-nama').value,
+                document.getElementById('inp-jabatan').value
+            ];
+            if (!data[0] || !data[1]) return alert("Lengkapi data!");
+
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(() => {
+                alert("Data tersimpan!");
+                refreshTable();
+                toggleLoading(false);
+            }).saveData(data[2], data);
+        }
+
+        function refreshTable() {
+            google.script.run.withSuccessHandler(gurus => {
+                let html = "";
+                gurus.forEach(g => {
+                    html += `<tr class="border-b">
+                        <td class="p-4">${g.nip}</td>
+                        <td class="p-4">${g.nama}</td>
+                        <td class="p-4 text-blue-600 font-semibold">Guru</td>
+                    </tr>`;
+                });
+                google.script.run.withSuccessHandler(staffs => {
+                    staffs.forEach(s => {
+                        html += `<tr class="border-b">
+                            <td class="p-4">${s.nip}</td>
+                            <td class="p-4">${s.nama}</td>
+                            <td class="p-4 text-orange-600 font-semibold">Staff</td>
+                        </tr>`;
+                    });
+                    document.getElementById('table-user-body').innerHTML = html;
+                }).getData('Staff');
+            }).getData('Guru');
+        }
+
+        function saveSettings() {
+            const obj = {
+                nama_sekolah: document.getElementById('set-nama-sekolah').value,
+                kepala_sekolah: document.getElementById('set-kepsek').value,
+                nip_kepsek: document.getElementById('set-nip-kepsek').value,
+                logo_url: document.getElementById('set-logo').value
+            };
+            google.script.run.withSuccessHandler(() => {
+                alert("Pengaturan diperbarui!");
+                loadGlobalSettings();
+            }).updateSettings(obj);
+        }
+
+        function generateRekap() {
+            const bulan = document.getElementById('rekap-bulan').value;
+            if (!bulan) return alert("Pilih bulan!");
+
+            toggleLoading(true);
+            google.script.run.withSuccessHandler(data => {
+                const filtered = data.filter(a => a.timestamp.includes(bulan));
+                let html = `<table class="w-full border-collapse border mt-4 text-sm">
+                    <thead><tr class="bg-slate-100">
+                        <th class="border p-2">Tanggal/Jam</th>
+                        <th class="border p-2">NIP</th>
+                        <th class="border p-2">Nama</th>
+                        <th class="border p-2">Tipe</th>
+                    </tr></thead><tbody>`;
+
+                filtered.forEach(f => {
+                    html += `<tr>
+                        <td class="border p-2">${new Date(f.timestamp).toLocaleString()}</td>
+                        <td class="border p-2">${f.id}</td>
+                        <td class="border p-2">${f.nama}</td>
+                        <td class="border p-2">${f.tipe}</td>
+                    </tr>`;
+                });
+
+                html += `</tbody></table>`;
+                document.getElementById('rekap-output').innerHTML = html;
+                toggleLoading(false);
+            }).getData('Absensi');
+        }
+
+        function printRekap() {
+            const content = document.getElementById('rekap-output').innerHTML;
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head>
+                    <title>Rekap Absensi - ${currentSettings.nama_sekolah}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 40px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .footer { margin-top: 50px; float: right; text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>LAPORAN KEHADIRAN</h2>
+                        <h1>${currentSettings.nama_sekolah}</h1>
+                        <p>Bulan: ${document.getElementById('rekap-bulan').value}</p>
+                    </div>
+                    ${content}
+                    <div class="footer">
+                        <p>Mengetahui,</p>
+                        <p>Kepala Sekolah</p>
+                        <br><br><br>
+                        <p><b>${currentSettings.kepala_sekolah}</b></p>
+                        <p>NIP. ${currentSettings.nip_kepsek}</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            win.document.close();
+            win.print();
+        }
+
+        function runSetup() {
+            if (confirm("Jalankan setup database? Ini akan membuat sheet yang diperlukan.")) {
+                google.script.run.withSuccessHandler(msg => alert(msg)).setupDatabase();
+            }
+        }
+    </script>
+</body>
+
+</html>
