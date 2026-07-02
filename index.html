@@ -353,7 +353,7 @@
             } else {
                 // Belum datang sama sekali
                 box.className = 'rounded-lg p-3 text-sm font-medium border bg-yellow-50 text-yellow-700 border-yellow-300';
-                box.innerHTML = '⏳ Belum absen hari ini. Silahkan absen <b>Datang</b> terlebih dahulu.';
+                box.innerHTML = '⏳ Belum absen datang hari ini. Silahkan absen <b>Datang</b> terlebih dahulu.';
                 btnDatang.disabled = false;
                 btnPulang.disabled = true;
             }
@@ -599,7 +599,7 @@
             // Tunggu sampai dokumen selesai load sebelum print
             win.onload = function () { win.print(); };
             // Fallback jika onload tidak terpanggil (tab langsung siap)
-            setTimeout(() => { try { win.print(); } catch(e) {} }, 800);
+            setTimeout(() => { try { win.print(); } catch (e) { } }, 800);
         }
 
         function runSetup() {
