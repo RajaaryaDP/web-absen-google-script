@@ -134,15 +134,35 @@ function getRekapBulan(bulan) {
 }
 
 function getStats() {
-  const absensi = getData('Absensi');
-  const today = new Date().toLocaleDateString();
-  const todayAbsen = absensi.filter(a => new Date(a.timestamp).toLocaleDateString() === today);
-  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tz = Session.getScriptTimeZone();
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  // Baca sheet Absensi secara langsung (nilai raw) untuk perbandingan tanggal yang akurat
+  const absenSheet = ss.getSheetByName('Absensi');
+  let datang = 0, pulang = 0, totalHariIni = 0;
+
+  if (absenSheet && absenSheet.getLastRow() > 1) {
+    const values = absenSheet.getRange(2, 1, absenSheet.getLastRow() - 1, 6).getValues();
+    values.forEach(row => {
+      const ts = row[0];
+      if (!ts) return;
+      const tsDate = ts instanceof Date ? ts : new Date(ts);
+      const rowDate = Utilities.formatDate(tsDate, tz, 'yyyy-MM-dd');
+      if (rowDate === today) {
+        totalHariIni++;
+        const tipe = String(row[4]).trim();
+        if (tipe === 'Datang') datang++;
+        else if (tipe === 'Pulang') pulang++;
+      }
+    });
+  }
+
   return {
     total_guru: getData('Guru').length,
     total_staff: getData('Staff').length,
-    absen_hari_ini: todayAbsen.length,
-    datang: todayAbsen.filter(a => a.tipe === 'Datang').length,
-    pulang: todayAbsen.filter(a => a.tipe === 'Pulang').length
+    absen_hari_ini: totalHariIni,
+    datang: datang,
+    pulang: pulang
   };
 }

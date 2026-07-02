@@ -255,8 +255,15 @@
         }
 
         function renderChart(datang, pulang) {
-            const ctx = document.getElementById('absenChart').getContext('2d');
-            if (window.myChart) window.myChart.destroy();
+            if (window.myChart) {
+                window.myChart.destroy();
+                window.myChart = null;
+            }
+            const canvas = document.getElementById('absenChart');
+            // Reset ukuran canvas agar Chart.js hitung ulang dimensi yang benar
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            const ctx = canvas.getContext('2d');
             window.myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -264,10 +271,23 @@
                     datasets: [{
                         label: 'Jumlah Kehadiran Hari Ini',
                         data: [datang, pulang],
-                        backgroundColor: ['#10b981', '#f59e0b']
+                        backgroundColor: ['#10b981', '#f59e0b'],
+                        borderRadius: 6
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, precision: 0 }
+                        }
+                    }
+                }
             });
         }
 
