@@ -357,19 +357,19 @@
             if (status.sudahDatang && status.sudahPulang) {
                 // Sudah datang & pulang — keduanya dikunci
                 box.className = 'rounded-lg p-3 text-sm font-medium border bg-slate-100 text-slate-600 border-slate-300';
-                box.innerHTML = '✅ Sudah absen <b>Datang</b> dan <b>Pulang</b> hari ini. Absensi selesai.';
+                box.innerHTML = ' Sudah absen <b>Datang</b> dan <b>Pulang</b> hari ini. Absensi selesai.';
                 btnDatang.disabled = true;
                 btnPulang.disabled = true;
             } else if (status.sudahDatang) {
                 // Sudah datang, belum pulang
                 box.className = 'rounded-lg p-3 text-sm font-medium border bg-green-50 text-green-700 border-green-300';
-                box.innerHTML = '✅ Sudah absen <b>Datang</b>. Silahkan absen <b>Pulang</b> saat selesai.';
+                box.innerHTML = ' Sudah absen <b>Datang</b>. Silahkan absen <b>Pulang</b> saat selesai.';
                 btnDatang.disabled = true;
                 btnPulang.disabled = false;
             } else {
                 // Belum datang sama sekali
                 box.className = 'rounded-lg p-3 text-sm font-medium border bg-yellow-50 text-yellow-700 border-yellow-300';
-                box.innerHTML = '⏳ Belum absen datang hari ini. Silahkan absen <b>Datang</b> terlebih dahulu.';
+                box.innerHTML = ' Belum absen datang hari ini. Silahkan absen <b>Datang</b> terlebih dahulu.';
                 btnDatang.disabled = false;
                 btnPulang.disabled = true;
             }
