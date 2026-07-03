@@ -75,11 +75,18 @@ function getData(sheetName) {
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
-  return values.map(row => {
+  const result = values.map(row => {
     let obj = {};
     headers.forEach((h, i) => obj[h.toLowerCase()] = row[i]);
     return obj;
   });
+  // Urutkan berdasarkan nama secara alfabetis (case-insensitive)
+  result.sort((a, b) => {
+    const namaA = String(a.nama || '').toLowerCase();
+    const namaB = String(b.nama || '').toLowerCase();
+    return namaA.localeCompare(namaB, 'id');
+  });
+  return result;
 }
 
 function saveData(sheetName, data) {
