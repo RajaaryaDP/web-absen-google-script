@@ -83,11 +83,14 @@ function getData(sheetName) {
 }
 
 function saveData(sheetName, data) {
-  // Validasi NIP unik di seluruh database (Guru + Staff)
   const nipBaru = String(data[0]).trim();
-  const duplikat = _isNipExists(nipBaru, null);
-  if (duplikat) {
-    return { ok: false, pesan: 'NIP ' + nipBaru + ' sudah terdaftar sebagai ' + duplikat + '. NIP harus unik!' };
+
+  // Validasi NIP unik hanya jika NIP diisi
+  if (nipBaru !== '') {
+    const duplikat = _isNipExists(nipBaru, null);
+    if (duplikat) {
+      return { ok: false, pesan: 'NIP ' + nipBaru + ' sudah terdaftar sebagai ' + duplikat + '. NIP harus unik!' };
+    }
   }
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
@@ -96,46 +99,48 @@ function saveData(sheetName, data) {
   return { ok: true, pesan: 'Data berhasil disimpan!' };
 }
 
-function deleteData(sheetName, nip) {
+function deleteData(sheetName, rowIndex) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return "Sheet tidak ditemukan!";
-  const data = sheet.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][0]) === String(nip)) {
-      sheet.deleteRow(i + 1);
-      return "Data berhasil dihapus!";
-    }
-  }
-  return "Data tidak ditemukan!";
+  // rowIndex adalah index data (0-based, tidak termasuk header)
+  const actualRow = parseInt(rowIndex) + 2; // +1 untuk header, +1 karena 1-based
+  if (actualRow < 2 || actualRow > sheet.getLastRow()) return "Data tidak ditemukan!";
+  sheet.deleteRow(actualRow);
+  return "Data berhasil dihapus!";
 }
 
-function updateData(sheetName, nipLama, dataBaruArr) {
+function updateData(sheetName, rowIndex, dataBaruArr) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return { ok: false, pesan: 'Sheet tidak ditemukan!' };
 
-  // Validasi NIP baru unik (kecualikan NIP lama milik sendiri)
+  const actualRow = parseInt(rowIndex) + 2; // +1 untuk header, +1 karena 1-based
+  if (actualRow < 2 || actualRow > sheet.getLastRow()) {
+    return { ok: false, pesan: 'Data tidak ditemukan!' };
+  }
+
+  // Validasi NIP baru unik hanya jika NIP diisi
   const nipBaru = String(dataBaruArr[0]).trim();
-  if (nipBaru !== String(nipLama).trim()) {
-    const duplikat = _isNipExists(nipBaru, String(nipLama).trim());
-    if (duplikat) {
-      return { ok: false, pesan: 'NIP ' + nipBaru + ' sudah digunakan oleh ' + duplikat + '. NIP harus unik!' };
+  if (nipBaru !== '') {
+    // Ambil NIP lama dari baris ini untuk dikecualikan dari pengecekan
+    const nipLama = String(sheet.getRange(actualRow, 1).getValue()).trim();
+    if (nipBaru !== nipLama) {
+      const duplikat = _isNipExists(nipBaru, nipLama);
+      if (duplikat) {
+        return { ok: false, pesan: 'NIP ' + nipBaru + ' sudah digunakan oleh ' + duplikat + '. NIP harus unik!' };
+      }
     }
   }
 
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(nipLama)) {
-      sheet.getRange(i + 1, 1, 1, dataBaruArr.length).setValues([dataBaruArr]);
-      return { ok: true, pesan: 'Data berhasil diperbarui!' };
-    }
-  }
-  return { ok: false, pesan: 'Data tidak ditemukan!' };
+  sheet.getRange(actualRow, 1, 1, dataBaruArr.length).setValues([dataBaruArr]);
+  return { ok: true, pesan: 'Data berhasil diperbarui!' };
 }
 
 // Helper: cek apakah NIP sudah ada di Guru atau Staff
 // excludeNip: NIP yang dikecualikan (untuk kasus edit - NIP lama sendiri)
 // Return: nama sheet jika duplikat, null jika tidak
+// NIP kosong ('') selalu dianggap tidak duplikat
 function _isNipExists(nip, excludeNip) {
+  if (!nip || nip === '') return null; // NIP kosong tidak perlu dicek
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetNames = ['Guru', 'Staff'];
   for (let s = 0; s < sheetNames.length; s++) {
@@ -144,6 +149,7 @@ function _isNipExists(nip, excludeNip) {
     const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
     for (let i = 0; i < values.length; i++) {
       const existingNip = String(values[i][0]).trim();
+      if (existingNip === '' ) continue; // skip baris NIP kosong
       if (existingNip === nip && existingNip !== excludeNip) {
         return sheetNames[s]; // kembalikan nama sheet tempat NIP ditemukan
       }

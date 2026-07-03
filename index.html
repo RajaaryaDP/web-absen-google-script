@@ -13,6 +13,7 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
+            overflow: hidden;
         }
 
         .sidebar-item {
@@ -28,10 +29,167 @@
             background-color: #3b82f6;
             color: white;
         }
+
+        /* ===== HAMBURGER & MOBILE SIDEBAR ===== */
+        #hamburger-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            width: 40px;
+            height: 40px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        #hamburger-btn:hover {
+            background: #f1f5f9;
+        }
+
+        #hamburger-btn span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: #475569;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        /* Mobile sidebar overlay */
+        #mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #mobile-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Mobile sidebar drawer */
+        #mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100vh;
+            height: 100dvh;
+            background: #0f172a;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        #mobile-sidebar nav {
+            overflow-y: auto;
+        }
+
+        #mobile-sidebar.open {
+            transform: translateX(0);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            #hamburger-btn {
+                display: flex;
+            }
+
+            /* Main padding on mobile */
+            main.p-8 {
+                padding: 1rem !important;
+            }
+
+            header.px-8 {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+
+            /* Rekap filter wrap vertically */
+            #page-rekap .flex.flex-wrap {
+                flex-direction: column;
+            }
+
+            #page-rekap .flex.flex-wrap>div,
+            #page-rekap .flex.flex-wrap input {
+                width: 100%;
+            }
+
+            #page-rekap .flex.gap-2 {
+                flex-wrap: wrap;
+            }
+
+            #page-rekap .flex.gap-2 button {
+                flex: 1;
+            }
+
+            /* Data page form stacks */
+            #page-data .grid-cols-1 {
+                gap: 0.75rem;
+            }
+
+            /* Settings grid 2→1 */
+            #page-settings .grid.grid-cols-2 {
+                grid-template-columns: 1fr !important;
+            }
+
+            /* Table horizontal scroll */
+            .overflow-x-auto-mobile {
+                overflow-x: auto;
+            }
+        }
     </style>
 </head>
 
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen">
+
+    <!-- Mobile Overlay (backdrop) -->
+    <div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+
+    <!-- Mobile Sidebar Drawer -->
+    <div id="mobile-sidebar" class="text-slate-300">
+        <div class="p-6 text-center border-b border-slate-800">
+            <h1 id="mobile-school-name" class="text-white font-bold text-lg uppercase tracking-wider">Loading...</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <button onclick="showPage('dashboard'); closeMobileMenu()"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="m-btn-dashboard">
+                <i class="fas fa-chart-line w-5"></i> <span>Dashboard</span>
+            </button>
+            <button onclick="showPage('absen'); closeMobileMenu()"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="m-btn-absen">
+                <i class="fas fa-user-check w-5"></i> <span>Absensi</span>
+            </button>
+            <button onclick="showPage('data'); closeMobileMenu()"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="m-btn-data">
+                <i class="fas fa-users w-5"></i> <span>Data Guru &amp; Staff</span>
+            </button>
+            <button onclick="showPage('rekap'); closeMobileMenu()"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="m-btn-rekap">
+                <i class="fas fa-file-invoice w-5"></i> <span>Rekap Absen</span>
+            </button>
+            <button onclick="showPage('settings'); closeMobileMenu()"
+                class="w-full flex items-center space-x-3 p-3 rounded-lg sidebar-item" id="m-btn-settings">
+                <i class="fas fa-cog w-5"></i> <span>Pengaturan</span>
+            </button>
+        </nav>
+    </div>
 
     <!-- Sidebar -->
     <div class="w-64 bg-slate-900 text-slate-300 flex flex-col hidden md:flex">
@@ -63,9 +221,17 @@
     </div>
 
     <!-- Main Content -->
-    <div class="flex-1 flex flex-col overflow-y-auto">
+    <div class="flex-1 flex flex-col overflow-y-auto" style="overscroll-behavior: contain;">
         <header class="bg-white border-b p-4 flex justify-between items-center px-8">
-            <h2 id="page-title" class="text-xl font-semibold text-slate-700">Dashboard</h2>
+            <div class="flex items-center gap-3">
+                <!-- Hamburger button (visible on mobile only) -->
+                <button id="hamburger-btn" onclick="openMobileMenu()" aria-label="Buka menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <h2 id="page-title" class="text-xl font-semibold text-slate-700">Dashboard</h2>
+            </div>
             <div id="loading-spinner" class="hidden animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
         </header>
 
@@ -109,7 +275,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Nama / NIP</label>
+                            <label class="block text-sm font-medium mb-1">Nama</label>
                             <select id="abs-user" onchange="cekStatusAbsen()" class="w-full p-3 border rounded-lg">
                                 <option value="">Pilih Nama...</option>
                             </select>
@@ -135,18 +301,18 @@
                 <div class="bg-white p-6 rounded-xl shadow-sm">
                     <h4 class="font-bold mb-4">Input Data Baru</h4>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <input type="text" id="inp-nip" placeholder="NIP" class="p-2 border rounded">
-                        <input type="text" id="inp-nama" placeholder="Nama Lengkap" class="p-2 border rounded">
-                        <select id="inp-jabatan" class="p-2 border rounded">
+                        <input type="text" id="inp-nip" placeholder="NIP (opsional)" class="p-2 border rounded w-full">
+                        <input type="text" id="inp-nama" placeholder="Nama Lengkap (wajib)" class="p-2 border rounded w-full">
+                        <select id="inp-jabatan" class="p-2 border rounded w-full">
                             <option value="Guru">Guru</option>
                             <option value="Staff">Staff</option>
                         </select>
                         <button onclick="tambahUser()"
-                            class="bg-blue-600 text-white rounded p-2 hover:bg-blue-700">Simpan Data</button>
+                            class="bg-blue-600 text-white rounded p-2 hover:bg-blue-700 w-full">Simpan Data</button>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <table class="w-full text-left">
+                <div class="bg-white rounded-xl shadow-sm overflow-x-auto">
+                    <table class="w-full text-left min-w-[500px]">
                         <thead class="bg-slate-50 border-b">
                             <tr>
                                 <th class="p-4">NIP</th>
@@ -204,8 +370,30 @@
                     <div class="grid grid-cols-1 gap-4">
                         <input type="text" id="set-nama-sekolah" placeholder="Nama Sekolah"
                             class="p-3 border rounded-lg w-full">
-                        <input type="text" id="set-logo" placeholder="URL Logo (Opsional)"
-                            class="p-3 border rounded-lg w-full">
+                        <!-- Logo Upload -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">Logo Sekolah</label>
+                            <div class="flex items-center gap-4">
+                                <div id="logo-preview-wrap" class="hidden">
+                                    <img id="logo-preview" src="" alt="Logo"
+                                        class="h-16 w-16 object-contain border rounded-lg bg-slate-50">
+                                </div>
+                                <div class="flex-1 space-y-2">
+                                    <label
+                                        class="flex items-center gap-2 cursor-pointer bg-slate-50 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-lg p-3 transition-colors">
+                                        <i class="fas fa-upload text-slate-400"></i>
+                                        <span id="logo-file-label" class="text-sm text-slate-500">Pilih file gambar
+                                            (JPG, PNG, GIF)...</span>
+                                        <input type="file" id="set-logo-file" accept="image/*" class="hidden"
+                                            onchange="previewLogo(this)">
+                                    </label>
+                                    <button type="button" onclick="hapusLogo()" id="btn-hapus-logo"
+                                        class="hidden text-xs text-red-500 underline hover:text-red-700">
+                                        <i class="fas fa-trash mr-1"></i>Hapus Logo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="grid grid-cols-2 gap-4">
                             <input type="text" id="set-kepsek" placeholder="Nama Kepala Sekolah"
                                 class="p-3 border rounded-lg">
@@ -226,14 +414,48 @@
         let currentUserData = [];
         let currentSettings = {};
 
-        // Navigation
+        // ===== MOBILE MENU =====
+        function openMobileMenu() {
+            document.getElementById('mobile-sidebar').classList.add('open');
+            const overlay = document.getElementById('mobile-overlay');
+            overlay.style.display = 'block';
+            document.body.classList.add('menu-open');
+            // trigger transition
+            requestAnimationFrame(() => overlay.classList.add('active'));
+        }
+
+        function closeMobileMenu() {
+            document.getElementById('mobile-sidebar').classList.remove('open');
+            document.body.classList.remove('menu-open');
+            const overlay = document.getElementById('mobile-overlay');
+            overlay.classList.remove('active');
+            overlay.addEventListener('transitionend', function handler() {
+                overlay.style.display = 'none';
+                overlay.removeEventListener('transitionend', handler);
+            });
+        }
+
+        // ===== NAVIGATION =====
         function showPage(pageId) {
             document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
             document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active-menu'));
 
             document.getElementById('page-' + pageId).classList.remove('hidden');
-            document.getElementById('btn-' + pageId).classList.add('active-menu');
-            document.getElementById('page-title').innerText = pageId.toUpperCase();
+            // Highlight desktop sidebar
+            const desktopBtn = document.getElementById('btn-' + pageId);
+            if (desktopBtn) desktopBtn.classList.add('active-menu');
+            // Highlight mobile sidebar
+            const mobileBtn = document.getElementById('m-btn-' + pageId);
+            if (mobileBtn) mobileBtn.classList.add('active-menu');
+
+            const pageTitles = {
+                dashboard: 'Dashboard',
+                absen: 'Absensi',
+                data: 'Data Guru & Staff',
+                rekap: 'Rekap Absen',
+                settings: 'Pengaturan'
+            };
+            document.getElementById('page-title').innerText = pageTitles[pageId] || pageId.toUpperCase();
 
             if (pageId === 'dashboard') loadStats();
             if (pageId === 'data') refreshTable();
@@ -253,12 +475,67 @@
         function loadGlobalSettings() {
             google.script.run.withSuccessHandler(data => {
                 currentSettings = data;
-                document.getElementById('side-school-name').innerText = data.nama_sekolah || "SISABSEN";
+                const nama = data.nama_sekolah || "SISABSEN";
+                document.getElementById('side-school-name').innerText = nama;
+                // Sync to mobile sidebar
+                const mobileNameEl = document.getElementById('mobile-school-name');
+                if (mobileNameEl) mobileNameEl.innerText = nama;
                 document.getElementById('set-nama-sekolah').value = data.nama_sekolah || "";
                 document.getElementById('set-kepsek').value = data.kepala_sekolah || "";
                 document.getElementById('set-nip-kepsek').value = data.nip_kepsek || "";
-                document.getElementById('set-logo').value = data.logo_url || "";
+                // Tampilkan preview logo jika ada
+                const logoUrl = data.logo_url || "";
+                if (logoUrl) {
+                    document.getElementById('logo-preview').src = logoUrl;
+                    document.getElementById('logo-preview-wrap').classList.remove('hidden');
+                    document.getElementById('logo-file-label').textContent = 'Logo tersimpan (pilih file baru untuk max 500kb)';
+                    document.getElementById('btn-hapus-logo').classList.remove('hidden');
+                } else {
+                    document.getElementById('logo-preview-wrap').classList.add('hidden');
+                    document.getElementById('logo-file-label').textContent = 'Pilih file gambar (JPG, PNG, GIF)...';
+                    document.getElementById('btn-hapus-logo').classList.add('hidden');
+                }
             }).getSettings();
+        }
+
+        function previewLogo(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            if (file.size > 500 * 1024) {
+                alert('Maksimum ukuran file 500KB.');
+                input.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('logo-preview').src = e.target.result;
+                document.getElementById('logo-preview-wrap').classList.remove('hidden');
+                document.getElementById('logo-file-label').textContent = file.name;
+                document.getElementById('btn-hapus-logo').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function hapusLogo() {
+            if (!confirm('Hapus logo sekolah?')) return;
+            // Reset preview
+            document.getElementById('logo-preview').src = '';
+            document.getElementById('logo-preview-wrap').classList.add('hidden');
+            document.getElementById('logo-file-label').textContent = 'Pilih file gambar (JPG, PNG, GIF)...';
+            document.getElementById('btn-hapus-logo').classList.add('hidden');
+            document.getElementById('set-logo-file').value = '';
+            // Simpan dengan logo kosong
+            currentSettings.logo_url = '';
+            const obj = {
+                nama_sekolah: currentSettings.nama_sekolah || '',
+                kepala_sekolah: currentSettings.kepala_sekolah || '',
+                nip_kepsek: currentSettings.nip_kepsek || '',
+                logo_url: ''
+            };
+            google.script.run.withSuccessHandler(() => {
+                alert('Logo berhasil dihapus!');
+                loadGlobalSettings();
+            }).updateSettings(obj);
         }
 
         function loadStats() {
@@ -316,8 +593,9 @@
             google.script.run.withSuccessHandler(data => {
                 currentUserData = data;
                 let html = '<option value="">Pilih Nama...</option>';
-                data.forEach(u => {
-                    html += `<option value="${u.nip}">${u.nama} (${u.nip})</option>`;
+                data.forEach((u, idx) => {
+                    const label = u.nip ? `${u.nama} (${u.nip})` : u.nama;
+                    html += `<option value="${idx}">${label}</option>`;
                 });
                 document.getElementById('abs-user').innerHTML = html;
             }).getData(kat);
@@ -332,8 +610,14 @@
         }
 
         function cekStatusAbsen() {
-            const nip = document.getElementById('abs-user').value;
-            if (!nip) { resetStatusAbsen(); return; }
+            const idx = document.getElementById('abs-user').value;
+            if (idx === '') { resetStatusAbsen(); return; }
+
+            const user = currentUserData[parseInt(idx)];
+            if (!user) { resetStatusAbsen(); return; }
+
+            // Gunakan NIP jika ada, jika tidak gunakan nama sebagai identifier
+            const identifier = user.nip || user.nama;
 
             toggleLoading(true);
             google.script.run
@@ -342,7 +626,7 @@
                     updateStatusAbsen(status);
                 })
                 .withFailureHandler(() => toggleLoading(false))
-                .getStatusAbsenHariIni(nip);
+                .getStatusAbsenHariIni(identifier);
         }
 
         function updateStatusAbsen(status) {
@@ -377,12 +661,17 @@
         }
 
         function submitAbsen(tipe) {
-            const nip = document.getElementById('abs-user').value;
-            if (!nip) return alert("Pilih nama terlebih dahulu!");
+            const idx = document.getElementById('abs-user').value;
+            if (idx === '') return alert("Pilih nama terlebih dahulu!");
 
-            const user = currentUserData.find(u => u.nip == nip);
+            const user = currentUserData[parseInt(idx)];
+            if (!user) return alert("Data user tidak ditemukan!");
+
+            // Gunakan NIP jika ada, jika tidak gunakan nama sebagai identifier
+            const identifier = user.nip || user.nama;
+
             const payload = {
-                id: nip,
+                id: identifier,
                 nama: user.nama,
                 kategori: document.getElementById('abs-kategori').value,
                 tipe: tipe
@@ -409,7 +698,7 @@
             const nip = document.getElementById('inp-nip').value.trim();
             const nama = document.getElementById('inp-nama').value.trim();
             const jabatan = document.getElementById('inp-jabatan').value;
-            if (!nip || !nama) return alert('Lengkapi data NIP dan Nama!');
+            if (!nama) return alert('Nama wajib diisi!');
 
             toggleLoading(true);
             google.script.run
@@ -435,32 +724,34 @@
         function refreshTable() {
             google.script.run.withSuccessHandler(gurus => {
                 let html = "";
-                gurus.forEach(g => {
+                gurus.forEach((g, idx) => {
+                    const nipDisplay = g.nip || '<span class="text-slate-400 italic text-xs">-</span>';
                     html += `<tr class="border-b">
-                        <td class="p-4">${g.nip}</td>
+                        <td class="p-4">${nipDisplay}</td>
                         <td class="p-4">${g.nama}</td>
                         <td class="p-4 text-blue-600 font-semibold">Guru</td>
                         <td class="p-4">
-                            <button onclick="editUser('${g.nip}', '${g.nama}', 'Guru')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
+                            <button onclick="editUser(${idx}, '${g.nip || ''}', '${g.nama.replace(/'/g, "\\'")}', 'Guru')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
                                 <i class="fas fa-edit mr-1"></i>Edit
                             </button>
-                            <button onclick="hapusUser('${g.nip}', 'Guru')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
+                            <button onclick="hapusUser(${idx}, '${g.nama.replace(/'/g, "\\'")}', 'Guru')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
                                 <i class="fas fa-trash mr-1"></i>Hapus
                             </button>
                         </td>
                     </tr>`;
                 });
                 google.script.run.withSuccessHandler(staffs => {
-                    staffs.forEach(s => {
+                    staffs.forEach((s, idx) => {
+                        const nipDisplay = s.nip || '<span class="text-slate-400 italic text-xs">-</span>';
                         html += `<tr class="border-b">
-                            <td class="p-4">${s.nip}</td>
+                            <td class="p-4">${nipDisplay}</td>
                             <td class="p-4">${s.nama}</td>
                             <td class="p-4 text-orange-600 font-semibold">Staff</td>
                             <td class="p-4">
-                                <button onclick="editUser('${s.nip}', '${s.nama}', 'Staff')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
+                                <button onclick="editUser(${idx}, '${s.nip || ''}', '${s.nama.replace(/'/g, "\\'")}', 'Staff')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-xs font-semibold px-3 py-1.5 rounded mr-2">
                                     <i class="fas fa-edit mr-1"></i>Edit
                                 </button>
-                                <button onclick="hapusUser('${s.nip}', 'Staff')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
+                                <button onclick="hapusUser(${idx}, '${s.nama.replace(/'/g, "\\'")}', 'Staff')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
                                     <i class="fas fa-trash mr-1"></i>Hapus
                                 </button>
                             </td>
@@ -471,8 +762,8 @@
             }).getData('Guru');
         }
 
-        function hapusUser(nip, kategori) {
-            if (!confirm(`Yakin ingin menghapus data dengan NIP ${nip}?`)) return;
+        function hapusUser(rowIdx, nama, kategori) {
+            if (!confirm(`Yakin ingin menghapus data "${nama}"?`)) return;
             toggleLoading(true);
             google.script.run.withSuccessHandler(res => {
                 alert(res || "Data berhasil dihapus!");
@@ -481,15 +772,15 @@
             }).withFailureHandler(err => {
                 alert("Gagal menghapus: " + err.message);
                 toggleLoading(false);
-            }).deleteData(kategori, nip);
+            }).deleteData(kategori, rowIdx);
         }
 
-        function editUser(nip, nama, kategori) {
-            const nipBaru = prompt('Edit NIP:', nip);
+        function editUser(rowIdx, nipLama, nama, kategori) {
+            const nipBaru = prompt('Edit NIP (kosongkan jika tidak punya):', nipLama);
             if (nipBaru === null) return;
             const namaBaru = prompt('Edit Nama:', nama);
             if (namaBaru === null) return;
-            if (!nipBaru.trim() || !namaBaru.trim()) return alert('NIP dan Nama tidak boleh kosong!');
+            if (!namaBaru.trim()) return alert('Nama tidak boleh kosong!');
 
             toggleLoading(true);
             google.script.run
@@ -506,20 +797,41 @@
                     toggleLoading(false);
                     alert('Error: ' + err.message);
                 })
-                .updateData(kategori, nip, [nipBaru.trim(), namaBaru.trim(), kategori]);
+                .updateData(kategori, rowIdx, [nipBaru.trim(), namaBaru.trim(), kategori]);
         }
 
         function saveSettings() {
-            const obj = {
-                nama_sekolah: document.getElementById('set-nama-sekolah').value,
-                kepala_sekolah: document.getElementById('set-kepsek').value,
-                nip_kepsek: document.getElementById('set-nip-kepsek').value,
-                logo_url: document.getElementById('set-logo').value
+            const nama_sekolah = document.getElementById('set-nama-sekolah').value;
+            const kepala_sekolah = document.getElementById('set-kepsek').value;
+            const nip_kepsek = document.getElementById('set-nip-kepsek').value;
+            const fileInput = document.getElementById('set-logo-file');
+
+            const doSave = (logo_url) => {
+                const obj = { nama_sekolah, kepala_sekolah, nip_kepsek, logo_url };
+                toggleLoading(true);
+                google.script.run
+                    .withSuccessHandler(() => {
+                        toggleLoading(false);
+                        alert('Pengaturan diperbarui!');
+                        loadGlobalSettings();
+                    })
+                    .withFailureHandler(err => {
+                        toggleLoading(false);
+                        alert('Gagal menyimpan: ' + err.message);
+                    })
+                    .updateSettings(obj);
             };
-            google.script.run.withSuccessHandler(() => {
-                alert("Pengaturan diperbarui!");
-                loadGlobalSettings();
-            }).updateSettings(obj);
+
+            if (fileInput.files && fileInput.files[0]) {
+                // Ada file baru dipilih — konversi ke base64 dulu
+                const reader = new FileReader();
+                reader.onload = e => doSave(e.target.result);
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                // Tidak ada file baru — pakai logo yang sudah tersimpan
+                const logoTersimpan = (currentSettings && currentSettings.logo_url) || '';
+                doSave(logoTersimpan);
+            }
         }
 
         function sinkronTanggal() {
@@ -634,7 +946,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Rekap Absensi - ${namaSekolah}</title>
+    <title></title>
     <style>
         /* Hilangkan header/footer bawaan browser (about:blank, tanggal, dll) */
         @page {
@@ -692,11 +1004,7 @@
     </style>
 </head>
 <body>
-    <!-- Label Rekap di pojok kanan atas (pengganti teks browser yang di-suppress) -->
-    <div class="print-top-right">
-        Rekap Absensi - ${namaSekolah}<br>
-        Dicetak: ${tanggalCetak}
-    </div>
+   
 
     <!-- Header utama: Logo kiri + Teks tengah -->
     <div class="doc-header">
@@ -712,8 +1020,7 @@
         <div style="width:72px;flex-shrink:0;"></div>
     </div>
 
-    <!-- Label rekap di kanan atas tabel -->
-    <div class="rekap-label">Rekap Absensi - ${judulPeriode}</div>
+  
 
     ${rekapOutput.innerHTML}
 
